@@ -1,0 +1,31 @@
+# Ensemble weight calibration config
+# Freeze the three sub-models and train only the learned ensemble weights
+# on the validation set.
+#
+# Prerequisites: train spatial, frequency, and temporal models first.
+#   python -m ml.train --config ml/configs/efficientnet_b4.yaml
+#   python -m ml.train --config ml/configs/frequency_cnn.yaml
+#   python -m ml.train --config ml/configs/temporal_bigru.yaml
+
+model:
+  name: ensemble
+  weights_dir: ./checkpoints          # must contain spatial.pt, frequency.pt, temporal.pt
+  learn_weights: true                  # softmax-normalized learnable weights
+  initial_weights: [0.4, 0.3, 0.3]   # spatial, frequency, temporal initial weights
+  freeze_submodels: true               # only the ensemble weight vector is trained
+
+data:
+  root: ./data/frames                  # same layout as frame loaders
+  num_workers: 4
+  max_frames_per_video: 30
+
+training:
+  batch_size: 32
+  lr: 0.001
+  lr_min: 0.00001
+  weight_decay: 0.0
+  epochs: 20
+  patience: 5
+  amp: false                           # weight training is fast, AMP not needed
+  output_dir: ./checkpoints
+

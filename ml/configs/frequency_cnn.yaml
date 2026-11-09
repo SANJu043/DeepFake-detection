@@ -1,0 +1,20 @@
+# Frequency CNN Detector — Training Config
+
+model:
+  name: frequency_cnn
+  dropout: 0.3
+
+data:
+  root: ./data/frames
+  num_workers: 4
+  max_frames_per_video: 30
+
+training:
+  batch_size: 64
+  lr: 0.0003
+  lr_min: 0.000001
+  weight_decay: 0.0001
+  epochs: 50
+  patience: 10
+  amp: true
+  output_dir: ./checkpoints

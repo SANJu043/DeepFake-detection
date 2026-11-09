@@ -1,0 +1,21 @@
+# EfficientNet-B4 Spatial Detector — Training Config
+
+model:
+  name: efficientnet_b4
+  pretrained: true
+  dropout: 0.4
+
+data:
+  root: ./data/frames          # data/frames/{train,val,test}/{real,fake}/videoN/frame_*.jpg
+  num_workers: 4
+  max_frames_per_video: 30
+
+training:
+  batch_size: 32
+  lr: 0.0001
+  lr_min: 0.000001
+  weight_decay: 0.0001
+  epochs: 50
+  patience: 10
+  amp: true                    # Mixed precision on CUDA
+  output_dir: ./checkpoints

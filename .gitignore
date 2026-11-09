@@ -1,0 +1,66 @@
+# Byte-compiled / optimized
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+!.env.example
+
+# Keys and secrets
+keys/
+*.pem
+*.key
+*.crt
+*.p12
+
+# Model weights (downloaded separately)
+weights/
+*.pt
+*.pth
+*.onnx
+
+# Data
+data/
+datasets/raw/
+datasets/processed/
+
+# Docker
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+.coverage
+htmlcov/
+coverage.xml
+
+# Distribution
+dist/
+build/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# MinIO data
+minio-data/
+
+# PostgreSQL data
+pgdata/

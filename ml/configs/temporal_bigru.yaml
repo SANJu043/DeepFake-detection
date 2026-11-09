@@ -1,0 +1,23 @@
+# Temporal BiGRU Detector — Training Config
+
+model:
+  name: temporal_bigru
+  input_size: 1792            # EfficientNet-B4 feature dim
+  hidden_size: 256
+  num_layers: 2
+  dropout: 0.3
+
+data:
+  root: ./data/features        # data/features/{train,val,test}/{real,fake}/videoN.pt
+  num_workers: 2
+  max_seq_len: 300
+
+training:
+  batch_size: 16
+  lr: 0.0005
+  lr_min: 0.000001
+  weight_decay: 0.0001
+  epochs: 40
+  patience: 8
+  amp: false                   # BiGRU can have AMP issues
+  output_dir: ./checkpoints
