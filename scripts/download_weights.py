@@ -20,6 +20,9 @@ import urllib.request
 from pathlib import Path
 from typing import Dict, Optional
 
+# Ensure project root is in sys.path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 # ---------------------------------------------------------------------------
 # Weight file registry
 # Each entry: filename -> real download URL (or None when not yet hosted).

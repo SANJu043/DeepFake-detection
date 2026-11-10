@@ -20,7 +20,12 @@ import base64
 import copy
 import hashlib
 import json
+import sys
+from pathlib import Path
 import uuid
+
+# Ensure project root is in sys.path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backend.app.services.hashing import sha256_digest
 from backend.app.services.manifest import build_manifest, signable_bytes
