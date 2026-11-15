@@ -65,6 +65,9 @@ class TemporalBiGRU(nn.Module):
     ) -> None:
         super().__init__()
 
+        # Input LayerNorm to standardize feature representations across cameras and lighting
+        self.norm = nn.LayerNorm(input_size)
+
         # Optional projection if input features are high-dimensional
         self.project = nn.Linear(input_size, hidden_size) if input_size != hidden_size else nn.Identity()
 
@@ -101,7 +104,7 @@ class TemporalBiGRU(nn.Module):
         Returns:
             (B,) tensor of fake probabilities.
         """
-        projected = self.project(x)  # (B, T, H)
+        projected = self.project(self.norm(x))  # (B, T, H)
 
         if lengths is not None:
             packed = nn.utils.rnn.pack_padded_sequence(

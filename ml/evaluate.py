@@ -137,7 +137,7 @@ def main():
     is_temporal = config["model"]["name"] == "temporal_bigru"
 
     if args.weights:
-        state = torch.load(args.weights, map_location=device)
+        state = torch.load(args.weights, map_location=device, weights_only=True)
         if "model_state_dict" in state:
             model.load_state_dict(state["model_state_dict"])
         else:

@@ -15,6 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends
 
+from backend.app.config import get_settings
 from backend.app.core.database import get_db
 from backend.app.models.models import Attestation
 from backend.app.schemas.schemas import (
@@ -22,6 +23,8 @@ from backend.app.schemas.schemas import (
     VerificationResponse,
     VerifyByIdRequest,
 )
+from backend.app.services.merkle_log import MerkleLog
+from backend.app.services.timestamp import TimestampService
 from backend.app.services.verifier import CheckStatus, Verifier
 
 import structlog
@@ -63,7 +66,9 @@ async def verify_by_id(
         )
 
     # Run the verification pipeline
-    verifier = Verifier()
+    settings = get_settings()
+    ts_service = TimestampService(backend="local", key_dir=settings.tsa_key_dir)
+    verifier = Verifier(timestamp_service=ts_service, merkle_log=MerkleLog())
     manifest = att.manifest
     public_key_pem = att.public_key_pem
 
@@ -144,7 +149,9 @@ async def verify_by_upload(
 
     video_bytes = await file.read()
 
-    verifier = Verifier()
+    settings = get_settings()
+    ts_service = TimestampService(backend="local", key_dir=settings.tsa_key_dir)
+    verifier = Verifier(timestamp_service=ts_service, merkle_log=MerkleLog())
     vr = verifier.verify(
         video_bytes=video_bytes,
         manifest=att.manifest,

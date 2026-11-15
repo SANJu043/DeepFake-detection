@@ -22,6 +22,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     """Application lifespan: startup and shutdown events."""
     settings = get_settings()
     setup_logging(level="DEBUG" if settings.debug else "INFO")
+    if settings.use_sqlite:
+        from backend.app.core.database import engine, Base
+        import backend.app.models.models  # ensure models are registered
+        from sqlalchemy import text
+        async with engine.begin() as conn:
+            await conn.execute(text("PRAGMA journal_mode=WAL;"))
+            await conn.run_sync(Base.metadata.create_all)
     yield
 
 
@@ -43,6 +50,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins_list,
+        allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

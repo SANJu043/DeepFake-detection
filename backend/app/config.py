@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     api_port: int = 8000
 
     # ── Database ────────────────────────────────────────────
+    use_sqlite: bool = True
     postgres_host: str = "localhost"
     postgres_port: int = 5432
     postgres_db: str = "deepfake_auth"
@@ -40,6 +41,8 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
+        if self.use_sqlite:
+            return "sqlite:///./deepfake.db"
         return (
             f"postgresql://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
@@ -47,6 +50,8 @@ class Settings(BaseSettings):
 
     @property
     def async_database_url(self) -> str:
+        if self.use_sqlite:
+            return "sqlite+aiosqlite:///./deepfake.db"
         return (
             f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
@@ -97,8 +102,8 @@ class Settings(BaseSettings):
     face_crop_size: int = 380
 
     # ── Policy Engine ───────────────────────────────────────
-    threshold_clean: float = 0.30
-    threshold_manipulated: float = 0.70
+    threshold_clean: float = 0.38
+    threshold_manipulated: float = 0.58
 
     # ── Upload Limits ───────────────────────────────────────
     max_upload_size_mb: int = 200
@@ -127,7 +132,7 @@ class Settings(BaseSettings):
     master_key: str = "0" * 64  # 256-bit hex, must be overridden
 
     # ── CORS ────────────────────────────────────────────────
-    cors_origins: str = "http://localhost:5173,http://localhost:3000"
+    cors_origins: str = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000,http://localhost:8000"
 
     @property
     def cors_origins_list(self) -> List[str]:

@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,6 +28,7 @@ from backend.app.schemas.schemas import (
 )
 from backend.app.services.hashing import sha256_digest
 from backend.app.services.video_io import VideoValidationError, validate_video
+from backend.app.workers.tasks import run_detection
 
 import structlog
 
@@ -36,6 +38,7 @@ router = APIRouter()
 
 @router.post("/", response_model=VideoUploadResponse, status_code=status.HTTP_202_ACCEPTED)
 async def upload_video(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -85,10 +88,19 @@ async def upload_video(
         status="pending",
     )
     db.add(job)
-    await db.flush()
+    await db.commit()
 
-    # TODO: In production, upload `data` to MinIO under `video.s3_key`
-    # and dispatch Celery task: detect_video.delay(str(job.id))
+    # Save video bytes locally for analysis and persistence
+    upload_dir = Path("data/uploads")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    video_path = upload_dir / f"{video.id}.mp4"
+    try:
+        video_path.write_bytes(data)
+    except Exception as e:
+        logger.warning("video.save_local_failed", error=str(e))
+
+    # Dispatch detection task in background
+    background_tasks.add_task(run_detection, str(job.id))
 
     logger.info(
         "video.uploaded",

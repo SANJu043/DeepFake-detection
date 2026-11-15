@@ -64,3 +64,12 @@ minio-data/
 
 # PostgreSQL data
 pgdata/
+# Local databases and temporary debug outputs
+*.db
+*.db-shm
+*.db-wal
+checkpoints/
+sample_videos/
+data/
+data/scratch_debug/
+tmp_inspect/

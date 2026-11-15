@@ -46,6 +46,10 @@ class PolicyResult:
     fake_probability: float
     inconclusive_reason: Optional[str] = None
 
+    @property
+    def reason(self) -> Optional[str]:
+        return self.inconclusive_reason
+
     def __post_init__(self) -> None:
         if self.verdict not in {
             VERDICT_NO_MANIPULATION,
@@ -92,6 +96,7 @@ class PolicyEngine:
         fake_probability: float,
         face_detected: bool = True,
         duration_s: float = 10.0,
+        frames_analyzed: Optional[int] = None,
     ) -> PolicyResult:
         """
         Evaluate the detection score and produce a verdict.
@@ -100,6 +105,8 @@ class PolicyEngine:
             fake_probability: Ensemble output in [0, 1].
             face_detected: Whether at least one face was found.
             duration_s: Video duration in seconds.
+            frames_analyzed: Number of face frames analyzed. If >= 2, short clips
+                             have sufficient visual evidence to evaluate.
 
         Returns:
             PolicyResult with verdict, probability, and optional reason.
@@ -112,7 +119,7 @@ class PolicyEngine:
                 inconclusive_reason=REASON_NO_FACE,
             )
 
-        if duration_s < 2.0:
+        if duration_s < 2.0 and (frames_analyzed is None or frames_analyzed < 2):
             return PolicyResult(
                 verdict=VERDICT_INCONCLUSIVE,
                 fake_probability=fake_probability,

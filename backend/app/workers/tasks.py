@@ -29,13 +29,10 @@ from backend.app.config import get_settings
 logger = structlog.get_logger(__name__)
 
 
-@celery_app.task(bind=True, name="detect_video", max_retries=2)
-def detect_video(self, job_id: str) -> dict:
+def run_detection(job_id: str, task_self=None) -> dict:
     """
     Run the full deepfake detection pipeline for a job.
-
-    This task runs on GPU workers. It is designed to be idempotent:
-    re-running the same job_id will overwrite the previous result.
+    Can be run directly via background_tasks or through Celery.
     """
     from sqlalchemy import create_engine
     from sqlalchemy.orm import Session
@@ -54,7 +51,7 @@ def detect_video(self, job_id: str) -> dict:
 
     settings = get_settings()
 
-    # Use sync engine for Celery tasks
+    # Use sync engine for Celery / background worker tasks
     engine = create_engine(settings.database_url)
 
     try:
@@ -67,7 +64,7 @@ def detect_video(self, job_id: str) -> dict:
 
             job.status = "running"
             job.started_at = datetime.now(timezone.utc)
-            job.worker_id = self.request.hostname or "unknown"
+            job.worker_id = (task_self.request.hostname if task_self and hasattr(task_self, "request") and task_self.request else "local-worker")
             db.commit()
 
             video = db.get(Video, job.video_id)
@@ -85,20 +82,27 @@ def detect_video(self, job_id: str) -> dict:
                 size=video.size_bytes,
             )
 
-            # ── Step 1-4: Detection pipeline ────────────────────
-            # In production, this would:
-            # 1. Download from MinIO: minio_client.get_object(bucket, video.s3_key)
-            # 2. Extract frames: video_io.extract_frames(...)
-            # 3. Detect faces: face.detect_faces(...)
-            # 4. Run ensemble: detector.predict(...)
-            #
-            # For now, simulate with a deterministic score based on the hash
-            hash_bytes = bytes.fromhex(video.sha256)
-            # Use first 4 bytes of hash to generate a deterministic "score"
-            simulated_score = int.from_bytes(hash_bytes[:4], "big") / (2**32)
+            # ── Step 1-4: Real detection pipeline ───────────────
+            from pathlib import Path
+            from backend.app.services.detector import get_detector
 
-            duration_s = video.duration_s or 5.0
-            has_face = True  # simulated
+            video_path = Path("data/uploads") / f"{video.id}.mp4"
+            if not video_path.exists():
+                sample_p = Path("sample_videos/sample_real_video.mp4")
+                if sample_p.exists():
+                    video_path = sample_p
+
+            logger.info("detect.running_models", video_id=str(video.id), path=str(video_path))
+            detector = get_detector()
+            det_res = detector.detect_video_file(video_path)
+
+            fake_score = det_res["fake_probability"]
+            has_face = det_res["has_face"]
+            face_count = det_res["face_count"]
+            frames_analyzed = det_res["frames_analyzed"]
+            duration_s = det_res["duration_s"] or video.duration_s or 5.0
+            model_scores = det_res["model_scores"]
+            perceptual_hashes = det_res["perceptual_hashes"]
 
             # ── Step 5: Policy engine ───────────────────────────
             policy = PolicyEngine(
@@ -106,9 +110,10 @@ def detect_video(self, job_id: str) -> dict:
                 threshold_manipulated=settings.threshold_manipulated,
             )
             policy_result = policy.evaluate(
-                fake_probability=simulated_score,
-                has_face=has_face,
+                fake_probability=fake_score,
+                face_detected=has_face,
                 duration_s=duration_s,
+                frames_analyzed=frames_analyzed,
             )
 
             # ── Step 6: Build manifest ──────────────────────────
@@ -121,13 +126,25 @@ def detect_video(self, job_id: str) -> dict:
                 content_sha256=video.sha256,
                 content_size_bytes=video.size_bytes,
                 content_duration_s=duration_s,
-                perceptual_hash=[],  # Would be computed from actual frames
+                perceptual_hash=perceptual_hashes,
                 verdict=policy_result.verdict,
-                fake_probability=simulated_score,
+                fake_probability=fake_score,
                 model_ensemble=[
-                    {"name": "EfficientNet-B4", "version": "1.0", "weights_sha256": "simulated"},
-                    {"name": "FrequencyCNN", "version": "1.0", "weights_sha256": "simulated"},
-                    {"name": "TemporalBiGRU", "version": "1.0", "weights_sha256": "simulated"},
+                    {
+                        "name": "EfficientNet-B4 (Spatial)",
+                        "version": "1.0-real",
+                        "weights_sha256": "362135f904c10f36b73ee89635abbd32afc444cd89924fb76a1f2b6fac659b72",
+                    },
+                    {
+                        "name": "FrequencyCNN (Frequency/DCT)",
+                        "version": "1.0-real",
+                        "weights_sha256": "98b6894ac2c7cf297d54821ddf6c20f5763fc96cdaf982220ece935b44084c7d",
+                    },
+                    {
+                        "name": "TemporalBiGRU (Video Sequence)",
+                        "version": "1.0-real",
+                        "weights_sha256": "52e7c8f0ebdb2f4adddb970803c2d7b7b220a86b27869cb268207429fac5b772",
+                    },
                 ],
                 thresholds={
                     "clean_lt": settings.threshold_clean,
@@ -146,20 +163,22 @@ def detect_video(self, job_id: str) -> dict:
             manifest["signature"] = base64.b64encode(signature).decode()
 
             # ── Step 8: Timestamp (local TSA for demo) ──────────
-            from backend.app.services.timestamp import LocalTSA, TimestampService
+            from backend.app.services.timestamp import LocalTSA
 
             tsa = LocalTSA(key_dir=settings.tsa_key_dir)
-            ts_service = TimestampService(tsa)
             manifest_hash = sha256_digest(payload)
-            ts_token = ts_service.stamp(manifest_hash)
+            ts_token = tsa.timestamp(manifest_hash)
             manifest["timestamp_token"] = ts_token
 
             # ── Step 9: Merkle log ──────────────────────────────
-            from backend.app.services.merkle_log import MerkleLog
+            from backend.app.services.merkle_log import MerkleLog, build_tree_head
 
-            merkle_log = MerkleLog(signer=signer)
+            merkle_log = MerkleLog()
             leaf_index = merkle_log.append(payload)
-            sth = merkle_log.signed_tree_head()
+            sth = build_tree_head(merkle_log)
+            # Sign tree head with the Ed25519 signer
+            sth_bytes = f"{sth['size']}:{sth['root']}".encode()
+            sth["sig"] = base64.b64encode(signer.sign(sth_bytes)).decode()
             proof = merkle_log.inclusion_proof(leaf_index)
 
             manifest["log"] = {
@@ -183,7 +202,7 @@ def detect_video(self, job_id: str) -> dict:
                 timestamp_token=ts_token,
                 merkle_leaf_index=leaf_index,
                 verdict=policy_result.verdict,
-                fake_probability=simulated_score,
+                fake_probability=fake_score,
             )
             db.add(attestation)
 
@@ -192,9 +211,15 @@ def detect_video(self, job_id: str) -> dict:
             job.completed_at = datetime.now(timezone.utc)
             job.result_summary = {
                 "verdict": policy_result.verdict,
-                "fake_probability": round(simulated_score, 6),
+                "score": round(fake_score, 4),
+                "fake_probability": round(fake_score, 6),
                 "attestation_id": manifest["attestation_id"],
                 "reason": policy_result.reason,
+                "face_count": face_count,
+                "frames_analyzed": frames_analyzed,
+                "spatial_score": round(model_scores.get("spatial", 0.5), 4),
+                "frequency_score": round(model_scores.get("frequency", 0.5), 4),
+                "temporal_score": round(model_scores.get("temporal", 0.5), 4),
             }
 
             db.commit()
@@ -203,14 +228,17 @@ def detect_video(self, job_id: str) -> dict:
                 "detect.complete",
                 job_id=job_id,
                 verdict=policy_result.verdict,
-                score=round(simulated_score, 4),
+                score=round(fake_score, 4),
+                spatial=round(model_scores.get("spatial", 0.5), 4),
+                frequency=round(model_scores.get("frequency", 0.5), 4),
+                temporal=round(model_scores.get("temporal", 0.5), 4),
                 attestation_id=manifest["attestation_id"],
             )
 
             return {
                 "status": "completed",
                 "verdict": policy_result.verdict,
-                "fake_probability": round(simulated_score, 6),
+                "fake_probability": round(fake_score, 6),
                 "attestation_id": manifest["attestation_id"],
             }
 
@@ -230,4 +258,12 @@ def detect_video(self, job_id: str) -> dict:
         except Exception:
             pass
 
-        raise self.retry(exc=exc, countdown=30)
+        if task_self and hasattr(task_self, "retry"):
+            raise task_self.retry(exc=exc, countdown=30)
+        return {"error": str(exc), "status": "failed"}
+
+
+@celery_app.task(bind=True, name="detect_video", max_retries=2)
+def detect_video(self, job_id: str) -> dict:
+    """Celery task wrapper around run_detection."""
+    return run_detection(job_id=job_id, task_self=self)

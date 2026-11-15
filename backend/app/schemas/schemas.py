@@ -100,6 +100,17 @@ class JobStatus(BaseModel):
     error_message: Optional[str] = None
     result_summary: Optional[Dict[str, Any]] = None
 
+    @field_validator("result_summary", mode="before")
+    @classmethod
+    def parse_result_summary(cls, v: Any) -> Optional[Dict[str, Any]]:
+        if isinstance(v, str):
+            import json
+            try:
+                return json.loads(v)
+            except Exception:
+                return None
+        return v
+
     model_config = {"from_attributes": True}
 
 

@@ -8,8 +8,10 @@ before processing.
 
 from __future__ import annotations
 
+import contextlib
 import io
 import json
+import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -20,6 +22,21 @@ import numpy as np
 import structlog
 
 logger = structlog.get_logger(__name__)
+
+@contextlib.contextmanager
+def _temp_video_file(data: bytes):
+    """Context manager for temporary video files with Windows locking compatibility."""
+    tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+    try:
+        tmp.write(data)
+        tmp.close()
+        yield tmp.name
+    finally:
+        if os.path.exists(tmp.name):
+            try:
+                os.unlink(tmp.name)
+            except OSError:
+                pass
 
 # Magic bytes for supported containers
 _MAGIC_BYTES = {
@@ -103,10 +120,7 @@ def ffprobe_info(data: bytes) -> dict:
     Raises:
         VideoValidationError: If FFprobe fails or the file is not a valid video.
     """
-    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=True) as tmp:
-        tmp.write(data)
-        tmp.flush()
-
+    with _temp_video_file(data) as tmp_path:
         try:
             result = subprocess.run(
                 [
@@ -115,7 +129,7 @@ def ffprobe_info(data: bytes) -> dict:
                     "-print_format", "json",
                     "-show_format",
                     "-show_streams",
-                    tmp.name,
+                    tmp_path,
                 ],
                 capture_output=True,
                 text=True,
@@ -165,11 +179,8 @@ def ffprobe_info(data: bytes) -> dict:
 
 def _fallback_opencv_info(data: bytes) -> dict:
     """Fallback video info extraction using OpenCV when FFprobe is unavailable."""
-    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=True) as tmp:
-        tmp.write(data)
-        tmp.flush()
-
-        cap = cv2.VideoCapture(tmp.name)
+    with _temp_video_file(data) as tmp_path:
+        cap = cv2.VideoCapture(tmp_path)
         if not cap.isOpened():
             raise VideoValidationError("Cannot open video file with OpenCV")
 
@@ -210,11 +221,8 @@ def sample_frames(
     Returns:
         (list_of_RGB_frames, duration_s)
     """
-    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=True) as tmp:
-        tmp.write(data)
-        tmp.flush()
-
-        cap = cv2.VideoCapture(tmp.name)
+    with _temp_video_file(data) as tmp_path:
+        cap = cv2.VideoCapture(tmp_path)
         if not cap.isOpened():
             raise VideoValidationError("Cannot open video for frame sampling")
 

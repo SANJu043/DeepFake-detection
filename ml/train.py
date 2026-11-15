@@ -324,10 +324,12 @@ def main():
     )
 
     # Compute weights hash for manifest
-    weights_bytes = (output_dir / f"{config['model']['name']}.pt").read_bytes()
+    _mname = config['model']['name']
+    weights_path = output_dir / f"{_mname}.pt"
+    weights_bytes = weights_path.read_bytes()
     weights_sha256 = hashlib.sha256(weights_bytes).hexdigest()
     print(f"\nFinal weights SHA-256: {weights_sha256}")
-    print(f"Saved to: {output_dir / f'{config[\"model\"][\"name\"]}.pt'}")
+    print(f"Saved to: {weights_path}")
 
 
 if __name__ == "__main__":

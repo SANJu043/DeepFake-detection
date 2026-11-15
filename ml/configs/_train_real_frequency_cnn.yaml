@@ -1,0 +1,18 @@
+﻿model:
+  name: frequency_cnn
+  dropout: 0.3
+
+data:
+  root: ./data/frames
+  num_workers: 0
+  max_frames_per_video: 10
+
+training:
+  batch_size: 32
+  lr: 0.0003
+  lr_min: 0.000001
+  weight_decay: 0.0001
+  epochs: 8
+  patience: 4
+  amp: false
+  output_dir: ./checkpoints

@@ -55,10 +55,12 @@ function ResultDetail({ summary }) {
   const vMap = VERDICT_BADGE[verdict] || { cls: 'badge-blue', label: verdict ?? '—' };
 
   const rows = [
-    { icon: <BarChart2 size={14} />, label: 'AI Score',    value: summary.score != null ? `${(summary.score * 100).toFixed(1)}%` : '—' },
-    { icon: <Users     size={14} />, label: 'Face Count',  value: summary.face_count ?? '—' },
-    { icon: <Activity  size={14} />, label: 'Frames Analysed', value: summary.frames_analyzed ?? '—' },
-    { icon: <Clock     size={14} />, label: 'Model',       value: summary.model ?? '—' },
+    { icon: <BarChart2 size={14} />, label: 'AI Score (Ensemble)', value: summary.score != null ? `${(summary.score * 100).toFixed(1)}%` : '—' },
+    { icon: <Activity  size={14} />, label: 'Spatial Score',        value: summary.spatial_score != null ? `${(summary.spatial_score * 100).toFixed(1)}%` : '—' },
+    { icon: <Activity  size={14} />, label: 'Frequency Score',      value: summary.frequency_score != null ? `${(summary.frequency_score * 100).toFixed(1)}%` : '—' },
+    { icon: <Activity  size={14} />, label: 'Temporal Score',       value: summary.temporal_score != null ? `${(summary.temporal_score * 100).toFixed(1)}%` : '—' },
+    { icon: <Users     size={14} />, label: 'Face Count',           value: summary.face_count ?? '—' },
+    { icon: <Clock     size={14} />, label: 'Frames Analysed',      value: summary.frames_analyzed ?? '—' },
   ];
 
   return (

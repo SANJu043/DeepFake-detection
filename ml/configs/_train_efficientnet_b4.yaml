@@ -1,0 +1,19 @@
+﻿model:
+  name: efficientnet_b4
+  pretrained: true
+  dropout: 0.4
+
+data:
+  root: ./data/frames
+  num_workers: 0
+  max_frames_per_video: 12
+
+training:
+  batch_size: 8
+  lr: 0.0001
+  lr_min: 0.000001
+  weight_decay: 0.0001
+  epochs: 5
+  patience: 5
+  amp: false
+  output_dir: ./checkpoints

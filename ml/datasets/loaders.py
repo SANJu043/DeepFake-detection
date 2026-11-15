@@ -140,7 +140,7 @@ class SequenceDataset(Dataset):
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, int, int]:
         """Returns (features, label, actual_length)."""
         path, label = self.samples[idx]
-        features = torch.load(path, map_location="cpu")  # (T, D)
+        features = torch.load(path, map_location="cpu", weights_only=True)  # (T, D)
 
         actual_len = min(features.shape[0], self.max_seq_len)
         if features.shape[0] > self.max_seq_len:

@@ -57,7 +57,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
         role="user",
     )
     db.add(user)
-    await db.flush()
+    await db.commit()
     await db.refresh(user)
 
     logger.info("auth.register", user_id=str(user.id), email=user.email)
