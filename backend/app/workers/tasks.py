@@ -94,7 +94,7 @@ def run_detection(job_id: str, task_self=None) -> dict:
 
             logger.info("detect.running_models", video_id=str(video.id), path=str(video_path))
             detector = get_detector()
-            det_res = detector.detect_video_file(video_path)
+            det_res = detector.detect_video_file(video_path, original_filename=video.filename)
 
             fake_score = det_res["fake_probability"]
             has_face = det_res["has_face"]

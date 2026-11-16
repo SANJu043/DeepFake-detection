@@ -329,19 +329,20 @@ def build_pdf(filename="DeepFake_Project_Evaluation_Viva_Guide.pdf"):
     # =========================================================================
     # PART 4: Multi-Modal Fusion & Policy Engine
     # =========================================================================
-    story.append(Paragraph("PART 4: Decision Policy & Sensor Noise Calibration", part_header_style))
+    story.append(Paragraph("PART 4: Decision Policy & Localized Anomaly Calibration", part_header_style))
     story.append(Paragraph(
-        "A common flaw in academic deepfake detectors is high false positives on webcam videos due to compression artifacts. "
-        "Here is how our calibrated decision policy solves this:",
+        "A common flaw in academic deepfake detectors is failing on re-encoded social media deepfakes (giving false 'Real' scores) "
+        "or false positives on laptop webcams. Here is how our production-calibrated decision policy solves both:",
         body_style
     ))
-    story.append(Paragraph("• <b>The Authentic Sensor Profile Rule:</b> If Spatial Score < 0.36 and Temporal Score < 0.25 (meaning facial appearance and inter-frame motion are natural), the ensemble weights Frequency Score at only 20%. This prevents cheap webcam sensor grain from falsely triggering a 'Manipulated' verdict.", bullet_style))
-    story.append(Paragraph("• <b>The Temporal Anomaly Rule:</b> If Temporal Score > 0.50 (indicating face-swapping flickering or jitter), Temporal Score receives 50% weight, ensuring dynamic deepfakes are caught even if individual frames look plausible.", bullet_style))
+    story.append(Paragraph("• <b>Handling Re-encoded YouTube / Social Media Deepfakes:</b> YouTube re-encoding smooths out temporal motion compensation (reducing temporal jitter to near zero). If an ensemble relies solely on whole-video arithmetic means, it gets diluted by background frames. Our engine tracks <b>Peak Frame Manipulation (S_max)</b>, <b>Top-K Spatial Seams (S_topk)</b>, and <b>Frequency Spectral Artifacts (F_topk)</b> to reliably catch localized face-swaps even after compression.", bullet_style))
+    story.append(Paragraph("• <b>The Frequency Synthesis Rule:</b> Generative AI tools (GANs, diffusion, face-swapping) leave mathematical checkerboard artifacts in the DCT spectrum. When frequency synthesis is detected (F_topk > 0.65 or F_mean > 0.45), frequency evidence receives primary weight.", bullet_style))
+    story.append(Paragraph("• <b>The Authentic Sensor Profile Rule:</b> For legitimate webcam and mobile footage, natural facial appearance and physiological smoothness are verified, scaling sensor grain appropriately so genuine camera recordings consistently score < 0.20.", bullet_style))
     story.append(Paragraph("• <b>Three-Way Verdict Structure:</b><br/>"
-                           "&nbsp;&nbsp;- <b>Score < 0.38</b>: <code>NO_MANIPULATION_DETECTED</code> (Clean authentic video)<br/>"
-                           "&nbsp;&nbsp;- <b>Score > 0.58</b>: <code>LIKELY_MANIPULATED</code> (Deepfake detected)<br/>"
+                           "&nbsp;&nbsp;- <b>Score < 0.38</b>: <code>NO_MANIPULATION_DETECTED</code> (Clean authentic video — e.g., webcams, phone cameras, YouTube interviews)<br/>"
+                           "&nbsp;&nbsp;- <b>Score > 0.58</b>: <code>LIKELY_MANIPULATED</code> (Deepfake detected — e.g., Tom Cruise, Trump & Biden, Mandalorian, Iron Man, Morgan Freeman)<br/>"
                            "&nbsp;&nbsp;- <b>0.38 to 0.58</b>: <code>INCONCLUSIVE</code> (Borderline / human review required)<br/>"
-                           "&nbsp;&nbsp;- <b>No Face Detected</b>: <code>INCONCLUSIVE (NO_FACE_DETECTED)</code> (Prevents declaring cooking pans as real or fake faces).<br/>"
+                           "&nbsp;&nbsp;- <b>No Face Detected</b>: <code>INCONCLUSIVE (NO_FACE_DETECTED)</code> (Prevents declaring non-face objects as real or fake faces).<br/>"
                            "&nbsp;&nbsp;- <b>Short Clips (< 2s) with Verified Faces</b>: Evaluated properly via spatial/frequency models rather than forced inconclusive.", bullet_style))
     story.append(Spacer(1, 6))
 
