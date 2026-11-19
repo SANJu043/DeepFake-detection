@@ -111,7 +111,7 @@ Special cases: Videos with no detectable face or under 2 seconds → `INCONCLUSI
 3. Re-encoding breaks exact hashes; perceptual matching is a weaker guarantee
 4. A malicious user could submit a deepfake the detector misses and still receive a valid signature
 5. Trust depends on CA and key management
-6. Privacy: storing user videos has legal and ethical implications
+6. Privacy: storing user videos has legal and ethical implications.
 
 ## License
 
